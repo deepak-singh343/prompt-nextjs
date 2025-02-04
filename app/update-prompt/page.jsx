@@ -1,19 +1,30 @@
 "use client";
 import Form from "@components/Form";
-import { useSession } from "@node_modules/next-auth/react";
-import { useRouter, useSearchParams } from "@node_modules/next/navigation";
-import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useEffect, useState, Suspense } from "react";
 
-const EditPrompt = () => {
+const EditPromptComponent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const promptId = searchParams.get("id");
-  console.log(promptId);
+
   const [submitting, setSubmitting] = useState(false);
-  const [post, setPost] = useState({
-    prompt: "",
-    tag: "",
-  });
+  const [post, setPost] = useState({ prompt: "", tag: "" });
+
+  useEffect(() => {
+    if (!promptId) return;
+    const getPromptDetails = async () => {
+      try {
+        const response = await fetch(`/api/prompt/${promptId}`);
+        const data = await response.json();
+        setPost({ prompt: data.prompt, tag: data.tag });
+      } catch (error) {
+        console.error("Error fetching prompt details:", error);
+      }
+    };
+    getPromptDetails();
+  }, [promptId]);
 
   const editPrompt = async (e) => {
     e.preventDefault();
@@ -22,31 +33,17 @@ const EditPrompt = () => {
     try {
       const response = await fetch(`/api/prompt/${promptId}`, {
         method: "PATCH",
-        body: JSON.stringify({
-          prompt: post.prompt,
-          tag: post.tag,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: post.prompt, tag: post.tag }),
       });
-      if (response.ok) {
-        router.push("/");
-      }
+      if (response.ok) router.push("/");
     } catch (error) {
-      console.log(error);
+      console.log("Error updating prompt:", error);
     } finally {
       setSubmitting(false);
     }
   };
-  useEffect(() => {
-    const getPromptDetails = async () => {
-      const response = await fetch(`/api/prompt/${promptId}`);
-      const data = await response.json();
-      setPost({
-        prompt: data.prompt,
-        tag: data.tag,
-      });
-    };
-    getPromptDetails();
-  }, [promptId]);
+
   return (
     <Form
       type="Edit"
@@ -57,5 +54,11 @@ const EditPrompt = () => {
     />
   );
 };
+
+const EditPrompt = () => (
+  <Suspense fallback={<div>Loading...</div>}>
+    <EditPromptComponent />
+  </Suspense>
+);
 
 export default EditPrompt;
